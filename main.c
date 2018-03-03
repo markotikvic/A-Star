@@ -12,8 +12,10 @@ int main(int argc, char **argv)
 
     AStarMap * map = a_star_parse_map(argv[1]);
     if (map == NULL) return -1;
+    a_star_print_map_info(map);
     a_star_print_map(map);
     if (a_star_solve_map(map)) {
+        printf("\nsolved:\n");
         a_star_print_map(map);
     } else {
         fprintf(stderr, "couldn't solve map\n");

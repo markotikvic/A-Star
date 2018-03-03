@@ -216,11 +216,17 @@ AStarMap *a_star_parse_map(char *fname)
     return map;
 }
 
+void a_star_print_map_info(AStarMap *map)
+{
+    vec2 s = map->start->pos;
+    vec2 g = map->goal->pos;
+    printf("size:  %d x %d\n", map->w, map->h);
+    printf("start: (%d, %d)\n", s.x, s.y);
+    printf("goal:  (%d, %d)\n", g.x, g.y);
+}
+
 void a_star_print_map(AStarMap *map)
 {
-    printf("w = %d, h = %d\n", map->w, map->h);
-    printf("start (%d, %d), goal (%d, %d)\n",
-            map->start->pos.x, map->start->pos.y, map->goal->pos.x, map->goal->pos.y);
     for (int y = 0; y < map->h; y++) {
         for (int x = 0; x < map->w; x++) {
             printf("%c", (map->nodes[y][x]).symbol);
@@ -263,7 +269,6 @@ bool a_star_solve_map(AStarMap *map)
             int tentative_g = current->g_score + movement_cost(current, neigh);
             // not worth it
             if (tentative_g >= neigh->g_score) continue;
-
 
             neigh->g_score = tentative_g;
             neigh->came_from = current->pos;

@@ -31,7 +31,8 @@ typedef struct map {
 } AStarMap;
 
 AStarMap *a_star_parse_map(char *fname);
-void a_star_print_map(AStarMap *map);
 bool a_star_solve_map(AStarMap *map);
+void a_star_print_map(AStarMap *map);
+void a_star_print_map_info(AStarMap *map);
 
 #endif /* A_STAR_H */
