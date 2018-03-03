@@ -141,11 +141,9 @@ static AStarSet *find_neighbours(AStarMap *map, AStarNode *current)
 
 static void retrace_map(AStarMap *map, AStarNode *last)
 {
-
     AStarNode *curr = last;
     int x, y;
-    int temp = 0;
-    while (curr->symbol != 'S' && temp++ < 50) {
+    while (curr->symbol != 'S') {
         x = curr->came_from.x;
         y = curr->came_from.y;
         curr = &(map->nodes[y][x]);
