@@ -25,9 +25,9 @@ static int chebyshev_distance(vec2 p1, vec2 p2)
     return D * (dx + dy) + (D2 - 2 * D) * min_i(dx, dy);
 }
 
-static int heuristic(vec2 p1, vec2 p2)
+static int heuristic(AStarNode *n1, AStarNode *n2)
 {
-    return chebyshev_distance(p1, p2);
+    return chebyshev_distance(n1->pos, n2->pos);
 }
 
 static int movement_cost(AStarNode *n1, AStarNode *n2)
@@ -61,7 +61,7 @@ static void add_to_set(AStarSet *set, AStarNode *node)
     set->len++;
 }
 
-static AStarNode *set_value_at(AStarSet *set, int index)
+static AStarNode *node_at(AStarSet *set, int index)
 {
     if (index < set->len) {
         return set->nodes[index];
@@ -73,7 +73,7 @@ static AStarNode *set_value_at(AStarSet *set, int index)
 static bool is_in_set(AStarSet *set, AStarNode *node)
 {
     for (int i = 0; i < set->len; i++) {
-        AStarNode *temp = set_value_at(set, i);
+        AStarNode *temp = node_at(set, i);
         if (temp->pos.x == node->pos.x && temp->pos.y == node->pos.y) {
             return true;
         }
@@ -100,7 +100,7 @@ static void remove_from_set(AStarSet *set, AStarNode *node)
 static AStarNode *min_f_score(AStarSet *set)
 {
     AStarNode *temp, *min;
-    min = set_value_at(set, 0);
+    min = node_at(set, 0);
 
     for (int i = 0; i < set->len; i++) {
         temp = set->nodes[i];
@@ -153,6 +153,15 @@ static void retrace_map(AStarMap *map, AStarNode *last)
     }
 }
 
+static bool same_node(AStarNode *n1, AStarNode *n2)
+{
+    if (n1->pos.x == n2->pos.x && n1->pos.y == n2->pos.y) {
+        return true;
+    }
+
+    return false;
+}
+
 AStarMap *a_star_parse_map(char *fname)
 {
     AStarMap *map = (AStarMap *) malloc(sizeof(AStarMap));
@@ -187,27 +196,20 @@ AStarMap *a_star_parse_map(char *fname)
             x = 0;
             continue;
         }
-        (map->nodes[y][x]).pos = v2(x, y);
-        (map->nodes[y][x]).symbol = c;
+        map->nodes[y][x].pos = v2(x, y);
+        map->nodes[y][x].symbol = c;
         // all nodes have infinite f and g scores at the start
-        (map->nodes[y][x]).f_score = INF;
-        (map->nodes[y][x]).g_score = INF;
+        map->nodes[y][x].f_score = INF;
+        map->nodes[y][x].g_score = INF;
         if (c == 'G') {
-            map->goal = v2(x, y);
+            map->goal = &(map->nodes[y][x]);
         }
         if (c == 'S') {
-            (map->nodes[y][x]).g_score = 0;
-            // only starting node is opened at the start
-            (map->nodes[y][x]).open = true;
-            map->open_count = 1;
-            map->start = v2(x, y);
+            map->start = &(map->nodes[y][x]);
+            map->start->g_score = 0;
         }
         x++;
     }
-    // for starting point h_cost is completely heuristic
-    int sy = map->start.y;
-    int sx = map->start.x;
-    (map->nodes[sy][sx]).h_cost = heuristic(map->start, map->goal);
 
     fclose(fp);
 
@@ -217,7 +219,8 @@ AStarMap *a_star_parse_map(char *fname)
 void a_star_print_map(AStarMap *map)
 {
     printf("w = %d, h = %d\n", map->w, map->h);
-    printf("start (%d, %d), goal (%d, %d)\n", map->start.x, map->start.y, map->goal.x, map->goal.y);
+    printf("start (%d, %d), goal (%d, %d)\n",
+            map->start->pos.x, map->start->pos.y, map->goal->pos.x, map->goal->pos.y);
     for (int y = 0; y < map->h; y++) {
         for (int x = 0; x < map->w; x++) {
             printf("%c", (map->nodes[y][x]).symbol);
@@ -231,19 +234,15 @@ bool a_star_solve_map(AStarMap *map)
     AStarSet *open_set   = new_set(10);
     AStarSet *closed_set = new_set(10);
 
-    for (int i = 0; i < map->h; i++) {
-        for (int j = 0; j < map->w; j++) {
-            if ((map->nodes[i][j]).symbol == 'S') {
-                add_to_set(open_set, &(map->nodes[i][j]));
-            }
-        }
-    }
+    // only starting node is in open set at the start
+    map->start->f_score = heuristic(map->start, map->goal);
+    add_to_set(open_set, map->start);
 
 
     AStarNode *current;
     while (open_set->len > 0) {
         current = min_f_score(open_set);
-        if (current->pos.x == map->goal.x && current->pos.y == map->goal.y) {
+        if (same_node(current, map->goal)) {
             retrace_map(map, current);
             return true;
         }
@@ -253,7 +252,7 @@ bool a_star_solve_map(AStarMap *map)
 
         AStarSet *neighbours = find_neighbours(map, current);
         for (int i = 0; i < neighbours->len; i++) {
-            AStarNode *neigh = set_value_at(neighbours, i);
+            AStarNode *neigh = node_at(neighbours, i);
 
             if (is_in_set(closed_set, neigh)) continue;
 
@@ -271,7 +270,7 @@ bool a_star_solve_map(AStarMap *map)
 
             //add_to_set(came_from, current);
             neighbours->nodes[i]->g_score = tentative_g;
-            neighbours->nodes[i]->f_score = neigh->g_score + heuristic(neigh->pos, map->goal);
+            neighbours->nodes[i]->f_score = neigh->g_score + heuristic(neigh, map->goal);
         }
         free(neighbours);
         neighbours = NULL;

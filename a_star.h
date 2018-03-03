@@ -13,10 +13,7 @@ typedef struct a_star_node {
     vec2 pos;
     vec2 came_from;
     char symbol;
-    bool open;
-    bool closed;
     float f_value;
-    int h_cost;  // cost from this vertex node to the goal
     int g_score;  // cost from starting point to the this vertex node
     int f_score;
 } AStarNode;
@@ -29,8 +26,7 @@ typedef struct node_set {
 
 typedef struct map {
     int w, h;
-    int open_count;
-    vec2 start, goal;
+    AStarNode *start, *goal;
     AStarNode **nodes;
 } AStarMap;
 
