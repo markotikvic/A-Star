@@ -21,7 +21,7 @@ LIBS =
 DEPS = a_star.h
 
 # object files (e.g. main.o util.o from main.c and util.c)
-# order of object files mather
+# order of object files matter
 _OBJ = a_star.o main.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
