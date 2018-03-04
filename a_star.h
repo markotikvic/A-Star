@@ -14,8 +14,8 @@ typedef struct a_star_node {
     vec2 came_from;
     char symbol;
     float f_value;
-    int g_score;  // cost from starting point to the this vertex node
-    int f_score;
+    int g_score; // cost from star to the this vertex node
+    int f_score; // cost from this vertex node to the goal
 } AStarNode;
 
 typedef struct node_set {

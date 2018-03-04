@@ -18,7 +18,7 @@ int main(int argc, char **argv)
         printf("\nsolved:\n");
         a_star_print_map(map);
     } else {
-        fprintf(stderr, "couldn't solve map\n");
+        printf("couldn't solve map\n");
     }
 
     return 0;

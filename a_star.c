@@ -2,27 +2,27 @@
 
 #define INF 10000
 
-static int min_i(int a, int b)
-{
-    if (a < b) return a;
-    else return b;
-}
-
 static vec2 v2(int x, int y)
 {
     vec2 v = {x = x, y = y};
     return v;
 }
 
+static int min(int a, int b)
+{
+    if (a < b) return a;
+    else return b;
+}
+
+// diagonal distance with D = 1 and D2 = 1
 static int chebyshev_distance(vec2 p1, vec2 p2)
 {
-    // diagonal distance with D = 1 and D2 = 1 is called Chebyshev distance
     int D = 1, D2 = 1;
 
     int dx = abs(p1.x - p2.x);
     int dy = abs(p1.y - p2.y);
 
-    return D * (dx + dy) + (D2 - 2 * D) * min_i(dx, dy);
+    return D * (dx + dy) + (D2 - 2 * D) * min(dx, dy);
 }
 
 static int heuristic(AStarNode *n1, AStarNode *n2)
@@ -111,6 +111,7 @@ static AStarNode *min_f_score(AStarSet *set)
     return min;
 }
 
+// find only walkable neighbours
 static AStarSet *find_neighbours(AStarMap *map, AStarNode *current)
 {
     AStarSet *n = new_set(8);
@@ -118,23 +119,40 @@ static AStarSet *find_neighbours(AStarMap *map, AStarNode *current)
     int y = current->pos.y;
 
     // cardinal directions
-    if (x > 0)
-        add_to_set(n, &(map->nodes[y][x-1]));
-    if (x < map->w - 1)
-        add_to_set(n, &(map->nodes[y][x+1]));
-    if (y > 0)
-        add_to_set(n, &(map->nodes[y-1][x]));
-    if (y < map->h - 1)
-        add_to_set(n, &(map->nodes[y+1][x]));
+    AStarNode *temp = NULL;
+    if (x > 0) {
+        temp = &(map->nodes[y][x-1]);
+        if (temp->symbol != '#') add_to_set(n, temp);
+    }
+    if (x < map->w - 1) {
+        temp = &(map->nodes[y][x+1]);
+        if (temp->symbol != '#') add_to_set(n, temp);
+    }
+    if (y > 0) {
+        temp = &(map->nodes[y-1][x]);
+        if (temp->symbol != '#') add_to_set(n, temp);
+    }
+    if (y < map->h - 1) {
+        temp = &(map->nodes[y+1][x]);
+        if (temp->symbol != '#') add_to_set(n, temp);
+    }
     // diagonals
-    if (x > 0 && y > 0)
-        add_to_set(n, &(map->nodes[y-1][x-1]));
-    if (x < map->w - 1 && y < map->h - 1)
-        add_to_set(n, &(map->nodes[y+1][x+1]));
-    if (x > 0 && y < map->h - 1)
-        add_to_set(n, &(map->nodes[y+1][x-1]));
-    if (x < map->w - 1 && y > 0)
-        add_to_set(n, &(map->nodes[y-1][x+1]));
+    if (x > 0 && y > 0) {
+        temp = &(map->nodes[y-1][x-1]);
+        if (temp->symbol != '#') add_to_set(n, temp);
+    }
+    if (x < map->w - 1 && y < map->h - 1) {
+        temp = &(map->nodes[y+1][x+1]);
+        if (temp->symbol != '#') add_to_set(n, temp);
+    }
+    if (x > 0 && y < map->h - 1) {
+        temp = &(map->nodes[y+1][x-1]);
+        if (temp->symbol != '#') add_to_set(n, temp);
+    }
+    if (x < map->w - 1 && y > 0) {
+        temp = &(map->nodes[y-1][x+1]);
+        if (temp->symbol != '#') add_to_set(n, temp);
+    }
 
     return n;
 }
@@ -158,7 +176,6 @@ static bool same_node(AStarNode *n1, AStarNode *n2)
     if (n1->pos.x == n2->pos.x && n1->pos.y == n2->pos.y) {
         return true;
     }
-
     return false;
 }
 
@@ -268,14 +285,16 @@ bool a_star_solve_map(AStarMap *map)
 
             int tentative_g = current->g_score + movement_cost(current, neigh);
             // not worth it
-            if (tentative_g >= neigh->g_score) continue;
+            if (tentative_g >= neigh->g_score) {
+                add_to_set(closed_set, neigh);
+                continue;
+            }
 
             neigh->g_score = tentative_g;
+            neigh->f_score = neigh->g_score + heuristic(neigh, map->goal);
             neigh->came_from = current->pos;
-
-            //add_to_set(came_from, current);
-            neighbours->nodes[i]->g_score = tentative_g;
-            neighbours->nodes[i]->f_score = neigh->g_score + heuristic(neigh, map->goal);
+            //neighbours->nodes[i]->g_score = tentative_g;
+            //neighbours->nodes[i]->f_score = neigh->g_score + heuristic(neigh, map->goal);
         }
         free(neighbours);
         neighbours = NULL;
