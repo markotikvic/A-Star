@@ -14,9 +14,12 @@ int main(int argc, char **argv)
     if (map == NULL) return -1;
     a_star_print_map_info(map);
     a_star_print_map(map);
-    if (a_star_solve_map(map)) {
+
+    AStarPath *path = a_star_solve_map(map);
+    if (path != NULL) {
         printf("\nsolved:\n");
         a_star_print_map(map);
+        a_star_print_path(path);
     } else {
         printf("couldn't solve map\n");
     }

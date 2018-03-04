@@ -157,11 +157,14 @@ static AStarSet *find_neighbours(AStarMap *map, AStarNode *current)
     return n;
 }
 
-static void retrace_map(AStarMap *map, AStarNode *last)
+// steps are in reverse order
+static AStarPath *retrace_map(AStarMap *map, AStarNode *last)
 {
+    AStarPath *path = (AStarPath *) malloc(sizeof(AStarPath));
     AStarNode *curr = last;
-    int x, y;
-    while (curr->symbol != 'S') {
+    int x, y, steps, weight = 0;
+    for (steps = 0; curr->symbol != 'S'; steps++) {
+        weight =+ curr->f_score;
         x = curr->came_from.x;
         y = curr->came_from.y;
         curr = &(map->nodes[y][x]);
@@ -169,6 +172,21 @@ static void retrace_map(AStarMap *map, AStarNode *last)
             curr->symbol = '+';
         }
     }
+
+    steps++; // +1 to account for end node
+    path->steps_count = steps;
+    path->weight = weight;
+    path->steps = (vec2 *) malloc(sizeof(vec2) * steps);
+    curr = last;
+    path->steps[0] = v2(last->pos.x, last->pos.y);
+    for (int i = 1; curr->symbol != 'S'; i++) {
+        x = curr->came_from.x;
+        y = curr->came_from.y;
+        path->steps[i] = v2(x, y);
+        curr = &(map->nodes[y][x]);
+    }
+
+    return path;
 }
 
 static bool same_node(AStarNode *n1, AStarNode *n2)
@@ -252,7 +270,7 @@ void a_star_print_map(AStarMap *map)
     }
 }
 
-bool a_star_solve_map(AStarMap *map)
+AStarPath *a_star_solve_map(AStarMap *map)
 {
     AStarSet *open_set   = new_set(10);
     AStarSet *closed_set = new_set(10);
@@ -266,8 +284,7 @@ bool a_star_solve_map(AStarMap *map)
     while (open_set->len > 0) {
         current = min_f_score(open_set);
         if (same_node(current, map->goal)) {
-            retrace_map(map, current);
-            return true;
+            return retrace_map(map, current);
         }
 
         remove_from_set(open_set, current);
@@ -285,16 +302,11 @@ bool a_star_solve_map(AStarMap *map)
 
             int tentative_g = current->g_score + movement_cost(current, neigh);
             // not worth it
-            if (tentative_g >= neigh->g_score) {
-                add_to_set(closed_set, neigh);
-                continue;
-            }
+            if (tentative_g >= neigh->g_score) continue;
 
             neigh->g_score = tentative_g;
             neigh->f_score = neigh->g_score + heuristic(neigh, map->goal);
             neigh->came_from = current->pos;
-            //neighbours->nodes[i]->g_score = tentative_g;
-            //neighbours->nodes[i]->f_score = neigh->g_score + heuristic(neigh, map->goal);
         }
         free(neighbours);
         neighbours = NULL;
@@ -302,5 +314,13 @@ bool a_star_solve_map(AStarMap *map)
     free(open_set);
     free(closed_set);
 
-    return false;
+    return NULL;
+}
+
+void a_star_print_path(AStarPath *path)
+{
+    printf("path: steps = %d, weight = %d\n", path->steps_count, path->weight);
+    for (int i = path->steps_count, j = 0; i > 0; i--, j++) {
+        printf("[%d] (%d, %d)\n", j+1, path->steps[i-1].x, path->steps[i-1].y);
+    }
 }
