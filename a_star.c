@@ -5,28 +5,18 @@
 static vec2 v2(int x, int y)
 {
     vec2 v = {x = x, y = y};
+
     return v;
 }
 
-static int min(int a, int b)
+static int heuristic_cost(AStarNode *n1, AStarNode *n2)
 {
-    return (a < b) ? a : b;
-}
+    int D = 1;
 
-// diagonal distance with D = 1 and D2 = 1
-static int chebyshev_distance(vec2 p1, vec2 p2)
-{
-    int D = 1, D2 = 1;
+    int dx = abs(n1->pos.x - n2->pos.x);
+    int dy = abs(n1->pos.y - n2->pos.y);
 
-    int dx = abs(p1.x - p2.x);
-    int dy = abs(p1.y - p2.y);
-
-    return D * (dx + dy) + (D2 - 2 * D) * min(dx, dy);
-}
-
-static int heuristic(AStarNode *n1, AStarNode *n2)
-{
-    return chebyshev_distance(n1->pos, n2->pos);
+    return D * (dx + dy);
 }
 
 static bool same_node(AStarNode *n1, AStarNode *n2)
@@ -36,16 +26,24 @@ static bool same_node(AStarNode *n1, AStarNode *n2)
 
 static int movement_cost(AStarNode *n1, AStarNode *n2)
 {
-    return (n1->tag == '#' || n2->tag == '#') ? INF : 1;
+    if (n2-> tag == '#') {
+        return INF;
+    } else {
+        int cost = abs(n1->pos.x - n2->pos.x) + abs(n1->pos.y - n2->pos.y);
+        return cost;
+    }
 }
 
 static AStarSet *new_set(unsigned int size)
 {
-    if (size < 1) size = 1;
+    if (size < 1) {
+        size = 1;
+    }
     AStarSet *set = (AStarSet *) malloc(sizeof(AStarSet));
     set->nodes = (AStarNode **) malloc(sizeof(AStarNode) * size);
     set->len = 0;
     set->cap = size;
+
     return set;
 }
 
@@ -77,10 +75,11 @@ static bool is_in_set(AStarSet *set, AStarNode *node)
             return true;
         }
     }
+
     return false;
 }
 
-static void remove_from_set(AStarSet *set, AStarNode *node)
+static bool remove_from_set(AStarSet *set, AStarNode *node)
 {
     AStarNode *temp;
     for (int i = 0; i < set->len; i++) {
@@ -91,9 +90,11 @@ static void remove_from_set(AStarSet *set, AStarNode *node)
             }
             set->len--;
             set->nodes[set->len] = NULL;
-            break;
+            return true;
         }
     }
+
+    return false;
 }
 
 static AStarNode *min_f_score(AStarSet *set)
@@ -103,10 +104,11 @@ static AStarNode *min_f_score(AStarSet *set)
 
     for (int i = 0; i < set->len; i++) {
         temp = set->nodes[i];
-        if (temp->f_score < min->f_score) {
+        if (temp->f_score <= min->f_score) {
             min = temp;
         }
     }
+
     return min;
 }
 
@@ -123,11 +125,18 @@ static AStarSet *find_neighbours(AStarMap *map, AStarNode *current)
     
     AStarNode *temp = NULL;
     for (int i = -1; i <= 1; i++) {
-        for (int j = -1; j <= 1; j++) {
-            if (i == 0 && j == 0) continue;
-            if (is_in_map(map, x+i, y+j)) {
-                temp = &(map->nodes[y+j][x+i]);
-                if (temp->tag != '#') add_to_set(n, temp);
+        if (i != 0 && is_in_map(map, x+i, y)) {
+            temp = &(map->nodes[y][x+i]);
+            if (temp->tag != '#') {
+                add_to_set(n, temp);
+            }
+        }
+    }
+    for (int i = -1; i <= 1; i++) {
+        if (i != 0 && is_in_map(map, x, y+i)) {
+            temp = &(map->nodes[y+i][x]);
+            if (temp->tag != '#') {
+                add_to_set(n, temp);
             }
         }
     }
@@ -140,9 +149,10 @@ static AStarPath *retrace_map(AStarMap *map, AStarNode *last)
 {
     AStarPath *path = (AStarPath *) malloc(sizeof(AStarPath));
     AStarNode *curr = last;
-    int x, y, steps, weight = 0;
+
+    // mark the steps and count them up
+    int x, y, steps;
     for (steps = 0; curr->tag != 'S'; steps++) {
-        weight =+ curr->f_score;
         x = curr->came_from.x;
         y = curr->came_from.y;
         curr = &(map->nodes[y][x]);
@@ -151,9 +161,9 @@ static AStarPath *retrace_map(AStarMap *map, AStarNode *last)
         }
     }
 
-    steps++; // +1 to account for end node
+    // add steps to path
     path->steps_count = steps;
-    path->weight = weight;
+    path->weight = last->f_score;
     path->steps = (vec2 *) malloc(sizeof(vec2) * steps);
     curr = last;
     path->steps[0] = v2(last->pos.x, last->pos.y);
@@ -214,7 +224,6 @@ AStarMap *a_star_parse_map(char *fname)
         }
         if (c == 'S') {
             map->start = &(map->nodes[y][x]);
-            map->start->g_score = 0;
         }
         x++;
     }
@@ -249,7 +258,8 @@ AStarPath *a_star_solve_map(AStarMap *map)
     AStarSet *closed_set = new_set(10);
 
     // only starting node is in open set at the start
-    map->start->f_score = heuristic(map->start, map->goal);
+    map->start->f_score = heuristic_cost(map->start, map->goal);
+    map->start->g_score = 0;
     add_to_set(open_set, map->start);
 
 
@@ -265,21 +275,27 @@ AStarPath *a_star_solve_map(AStarMap *map)
 
         AStarSet *neighbours = find_neighbours(map, current);
         for (int i = 0; i < neighbours->len; i++) {
+#if DEBUG
+            a_star_print_map(map);
+            getchar();
+#endif
             AStarNode *neigh = node_at(neighbours, i);
-
-            if (is_in_set(closed_set, neigh)) continue;
-
+            if (is_in_set(closed_set, neigh)) {
+                continue;
+            }
             if (!is_in_set(open_set, neigh)) {
-                if (!same_node(neigh, map->goal)) neigh->tag = ',';
+                if (!same_node(neigh, map->goal)) {
+                    neigh->tag = '~';
+                }
                 add_to_set(open_set, neigh);
             }
 
-            int tentative_g = current->g_score + movement_cost(current, neigh);
-            // not worth it
-            if (tentative_g >= neigh->g_score) continue;
-
-            neigh->g_score = tentative_g;
-            neigh->f_score = neigh->g_score + heuristic(neigh, map->goal);
+            int temp_g = current->g_score + movement_cost(current, neigh);
+            if (temp_g >= neigh->g_score) {
+                continue;
+            }
+            neigh->g_score = temp_g;
+            neigh->f_score = temp_g + heuristic_cost(neigh, map->goal);
             neigh->came_from = current->pos;
         }
         free(neighbours);
@@ -293,7 +309,7 @@ AStarPath *a_star_solve_map(AStarMap *map)
 
 void a_star_print_path(AStarPath *path)
 {
-    printf("path:\n steps = %d, weight = %d\n", path->steps_count, path->weight);
+    printf("path:\nsteps = %d, weight = %d\n", path->steps_count, path->weight);
     for (int i = path->steps_count, j = 0; i > 0; i--, j++) {
         printf("[%d] (%d, %d)\n", j+1, path->steps[i-1].x, path->steps[i-1].y);
     }

@@ -6,7 +6,7 @@ Wikipedia also has a decent introduction to the topic: [A\* search algorithm](ht
 
 Code is easily modifiable if you want to implement different kinds of walkable terrains (water, sand, bridges etc.), you just need to modify the `movement_cost` function.  
 
-Also, all the examples are done by allowing 8-directional movement. In order to allow movement in only certain directions, modify `find_neigbours` function.
+Also, all the examples are done by allowing 4-directional movement. In order to allow movement in other directions, modify `find_neigbours` function.
 
 #### Usage
 ```
@@ -16,8 +16,9 @@ Also, all the examples are done by allowing 8-directional movement. In order to 
 #### Examples can be found in `/examples` directory.
 
 #### Symbols
-* `.` unexplored node
-* `,` explored node
-* `#` obstacle
 * `S` starting point
 * `G` goal point
+* `.` unexplored node
+* `~` explored node
+* `#` obstacle
+* `+` path
