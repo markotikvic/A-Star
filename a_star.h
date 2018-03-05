@@ -6,12 +6,13 @@
 #include <stdbool.h>
 
 typedef struct vector2 {
-    int x, y; } vec2; 
+    int x, y;
+} vec2; 
+
 typedef struct a_star_node {
     vec2 pos;
     vec2 came_from;
-    char symbol;
-    float f_value;
+    char tag;
     int g_score; // cost from star to the this vertex node
     int f_score; // cost from this vertex node to the goal
 } AStarNode;

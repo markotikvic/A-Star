@@ -6,7 +6,7 @@
 int main(int argc, char **argv)
 {
     if (argc != 2) {
-        printf("a-star map_file.txt\n");
+        printf("a-star <map.txt>\n");
         return 1;
     }
 
@@ -18,11 +18,11 @@ int main(int argc, char **argv)
     AStarPath *path = a_star_solve_map(map);
     if (path != NULL) {
         printf("\nsolved:\n");
-        a_star_print_map(map);
         a_star_print_path(path);
     } else {
-        printf("couldn't solve map\n");
+        printf("\ncouldn't solve map\n");
     }
+    a_star_print_map(map);
 
     return 0;
 

@@ -10,8 +10,7 @@ static vec2 v2(int x, int y)
 
 static int min(int a, int b)
 {
-    if (a < b) return a;
-    else return b;
+    return (a < b) ? a : b;
 }
 
 // diagonal distance with D = 1 and D2 = 1
@@ -30,19 +29,19 @@ static int heuristic(AStarNode *n1, AStarNode *n2)
     return chebyshev_distance(n1->pos, n2->pos);
 }
 
-static int movement_cost(AStarNode *n1, AStarNode *n2)
+static bool same_node(AStarNode *n1, AStarNode *n2)
 {
-    if (n1->symbol == '#' || n2->symbol == '#') {
-        return INF;
-    } else {
-        return 1;
-    }
-
-    return 0;
+    return (n1->pos.x == n2->pos.x && n1->pos.y == n2->pos.y);
 }
 
-static AStarSet *new_set(int size)
+static int movement_cost(AStarNode *n1, AStarNode *n2)
 {
+    return (n1->tag == '#' || n2->tag == '#') ? INF : 1;
+}
+
+static AStarSet *new_set(unsigned int size)
+{
+    if (size < 1) size = 1;
     AStarSet *set = (AStarSet *) malloc(sizeof(AStarSet));
     set->nodes = (AStarNode **) malloc(sizeof(AStarNode) * size);
     set->len = 0;
@@ -111,47 +110,26 @@ static AStarNode *min_f_score(AStarSet *set)
     return min;
 }
 
+static bool is_in_map(AStarMap *map, int x, int y) {
+    return (x >= 0 && y >= 0 && x < map->w && y < map->h);
+}
+
 // find only walkable neighbours
 static AStarSet *find_neighbours(AStarMap *map, AStarNode *current)
 {
-    AStarSet *n = new_set(8);
+    AStarSet *n = new_set(1);
     int x = current->pos.x;
     int y = current->pos.y;
-
-    // cardinal directions
+    
     AStarNode *temp = NULL;
-    if (x > 0) {
-        temp = &(map->nodes[y][x-1]);
-        if (temp->symbol != '#') add_to_set(n, temp);
-    }
-    if (x < map->w - 1) {
-        temp = &(map->nodes[y][x+1]);
-        if (temp->symbol != '#') add_to_set(n, temp);
-    }
-    if (y > 0) {
-        temp = &(map->nodes[y-1][x]);
-        if (temp->symbol != '#') add_to_set(n, temp);
-    }
-    if (y < map->h - 1) {
-        temp = &(map->nodes[y+1][x]);
-        if (temp->symbol != '#') add_to_set(n, temp);
-    }
-    // diagonals
-    if (x > 0 && y > 0) {
-        temp = &(map->nodes[y-1][x-1]);
-        if (temp->symbol != '#') add_to_set(n, temp);
-    }
-    if (x < map->w - 1 && y < map->h - 1) {
-        temp = &(map->nodes[y+1][x+1]);
-        if (temp->symbol != '#') add_to_set(n, temp);
-    }
-    if (x > 0 && y < map->h - 1) {
-        temp = &(map->nodes[y+1][x-1]);
-        if (temp->symbol != '#') add_to_set(n, temp);
-    }
-    if (x < map->w - 1 && y > 0) {
-        temp = &(map->nodes[y-1][x+1]);
-        if (temp->symbol != '#') add_to_set(n, temp);
+    for (int i = -1; i <= 1; i++) {
+        for (int j = -1; j <= 1; j++) {
+            if (i == 0 && j == 0) continue;
+            if (is_in_map(map, x+i, y+j)) {
+                temp = &(map->nodes[y+j][x+i]);
+                if (temp->tag != '#') add_to_set(n, temp);
+            }
+        }
     }
 
     return n;
@@ -163,13 +141,13 @@ static AStarPath *retrace_map(AStarMap *map, AStarNode *last)
     AStarPath *path = (AStarPath *) malloc(sizeof(AStarPath));
     AStarNode *curr = last;
     int x, y, steps, weight = 0;
-    for (steps = 0; curr->symbol != 'S'; steps++) {
+    for (steps = 0; curr->tag != 'S'; steps++) {
         weight =+ curr->f_score;
         x = curr->came_from.x;
         y = curr->came_from.y;
         curr = &(map->nodes[y][x]);
-        if (curr->symbol != 'G' && curr->symbol != 'S') {
-            curr->symbol = '+';
+        if (curr->tag != 'G' && curr->tag != 'S') {
+            curr->tag = '+';
         }
     }
 
@@ -179,7 +157,7 @@ static AStarPath *retrace_map(AStarMap *map, AStarNode *last)
     path->steps = (vec2 *) malloc(sizeof(vec2) * steps);
     curr = last;
     path->steps[0] = v2(last->pos.x, last->pos.y);
-    for (int i = 1; curr->symbol != 'S'; i++) {
+    for (int i = 1; curr->tag != 'S'; i++) {
         x = curr->came_from.x;
         y = curr->came_from.y;
         path->steps[i] = v2(x, y);
@@ -187,14 +165,6 @@ static AStarPath *retrace_map(AStarMap *map, AStarNode *last)
     }
 
     return path;
-}
-
-static bool same_node(AStarNode *n1, AStarNode *n2)
-{
-    if (n1->pos.x == n2->pos.x && n1->pos.y == n2->pos.y) {
-        return true;
-    }
-    return false;
 }
 
 AStarMap *a_star_parse_map(char *fname)
@@ -210,8 +180,11 @@ AStarMap *a_star_parse_map(char *fname)
     // determine map size
     int y = 0, x = 0, c = 0;
     while ((c = fgetc(fp)) != EOF) {
-        if (c == '\n') y++;
-        x++;
+        if (c == '\n') {
+            y++;
+        } else {
+            x++;
+        }
     }
     rewind(fp);
     map->h = y;
@@ -232,7 +205,7 @@ AStarMap *a_star_parse_map(char *fname)
             continue;
         }
         map->nodes[y][x].pos = v2(x, y);
-        map->nodes[y][x].symbol = c;
+        map->nodes[y][x].tag = c;
         // all nodes have infinite f and g scores at the start
         map->nodes[y][x].f_score = INF;
         map->nodes[y][x].g_score = INF;
@@ -264,7 +237,7 @@ void a_star_print_map(AStarMap *map)
 {
     for (int y = 0; y < map->h; y++) {
         for (int x = 0; x < map->w; x++) {
-            printf("%c", (map->nodes[y][x]).symbol);
+            printf("%c", (map->nodes[y][x]).tag);
         }
         printf("\n");
     }
@@ -297,6 +270,7 @@ AStarPath *a_star_solve_map(AStarMap *map)
             if (is_in_set(closed_set, neigh)) continue;
 
             if (!is_in_set(open_set, neigh)) {
+                if (!same_node(neigh, map->goal)) neigh->tag = ',';
                 add_to_set(open_set, neigh);
             }
 
@@ -319,7 +293,7 @@ AStarPath *a_star_solve_map(AStarMap *map)
 
 void a_star_print_path(AStarPath *path)
 {
-    printf("path: steps = %d, weight = %d\n", path->steps_count, path->weight);
+    printf("path:\n steps = %d, weight = %d\n", path->steps_count, path->weight);
     for (int i = path->steps_count, j = 0; i > 0; i--, j++) {
         printf("[%d] (%d, %d)\n", j+1, path->steps[i-1].x, path->steps[i-1].y);
     }
