@@ -1,13 +1,7 @@
 #include "a_star.h"
 
 #define INF 10000
-
-static vec2 v2(int x, int y)
-{
-    vec2 v = {x = x, y = y};
-
-    return v;
-}
+//#define DEBUG
 
 static int heuristic_cost(AStarNode *n1, AStarNode *n2)
 {
@@ -145,36 +139,42 @@ static AStarSet *find_neighbours(AStarMap *map, AStarNode *current)
 }
 
 // steps are in reverse order
-static AStarPath *retrace_map(AStarMap *map, AStarNode *last)
+static AStarPath *retrace_map(AStarNode *last)
 {
     AStarPath *path = (AStarPath *) malloc(sizeof(AStarPath));
     AStarNode *curr = last;
 
     // mark the steps and count them up
     int x, y, steps;
-    for (steps = 0; curr->tag != 'S'; steps++) {
-        x = curr->came_from.x;
-        y = curr->came_from.y;
-        curr = &(map->nodes[y][x]);
+    for (steps = 0; curr->came_from != NULL; steps++) {
+        curr = curr->came_from;
         if (curr->tag != 'G' && curr->tag != 'S') {
             curr->tag = '+';
         }
     }
+    steps++;
 
     // add steps to path
-    path->steps_count = steps;
+    path->nodes_count = steps;
     path->weight = last->f_score;
     path->steps = (vec2 *) malloc(sizeof(vec2) * steps);
     curr = last;
-    path->steps[0] = v2(last->pos.x, last->pos.y);
-    for (int i = 1; curr->tag != 'S'; i++) {
-        x = curr->came_from.x;
-        y = curr->came_from.y;
-        path->steps[i] = v2(x, y);
-        curr = &(map->nodes[y][x]);
+    path->steps[steps-1] = v2(last->pos.x, last->pos.y);
+    for (int i = 2; i <= steps; i++) {
+        x = curr->came_from->pos.x;
+        y = curr->came_from->pos.y;
+        path->steps[steps-i] = v2(x, y);
+        curr = curr->came_from;
     }
 
     return path;
+}
+
+vec2 v2(int x, int y)
+{
+    vec2 v = {x = x, y = y};
+
+    return v;
 }
 
 AStarMap *a_star_parse_map(char *fname)
@@ -190,11 +190,8 @@ AStarMap *a_star_parse_map(char *fname)
     // determine map size
     int y = 0, x = 0, c = 0;
     while ((c = fgetc(fp)) != EOF) {
-        if (c == '\n') {
-            y++;
-        } else {
-            x++;
-        }
+        if (c == '\n') y++;
+        else           x++;
     }
     rewind(fp);
     map->h = y;
@@ -219,12 +216,7 @@ AStarMap *a_star_parse_map(char *fname)
         // all nodes have infinite f and g scores at the start
         map->nodes[y][x].f_score = INF;
         map->nodes[y][x].g_score = INF;
-        if (c == 'G') {
-            map->goal = &(map->nodes[y][x]);
-        }
-        if (c == 'S') {
-            map->start = &(map->nodes[y][x]);
-        }
+        map->nodes[y][x].came_from = NULL;
         x++;
     }
 
@@ -233,17 +225,10 @@ AStarMap *a_star_parse_map(char *fname)
     return map;
 }
 
-void a_star_print_map_info(AStarMap *map)
-{
-    vec2 s = map->start->pos;
-    vec2 g = map->goal->pos;
-    printf("size:  %d x %d\n", map->w, map->h);
-    printf("start: (%d, %d)\n", s.x, s.y);
-    printf("goal:  (%d, %d)\n", g.x, g.y);
-}
-
 void a_star_print_map(AStarMap *map)
 {
+    if (map == NULL) return;
+
     for (int y = 0; y < map->h; y++) {
         for (int x = 0; x < map->w; x++) {
             printf("%c", (map->nodes[y][x]).tag);
@@ -252,22 +237,41 @@ void a_star_print_map(AStarMap *map)
     }
 }
 
-AStarPath *a_star_solve_map(AStarMap *map)
+AStarPath *a_star_solve_map(AStarMap *map, vec2 start, vec2 goal)
 {
+    if (!is_in_map(map, start.x, start.y)) {
+        printf("starting point (%d, %d) is not in map range\n", start.x, start.y);
+        return NULL;
+    }
+
+    if (!is_in_map(map, start.x, start.y)) {
+        printf("goal point (%d, %d) is not in map range\n", goal.x, goal.y);
+        return NULL;
+    }
+
+    printf("solving for: S(%d, %d) -> G(%d, %d)\n", start.x, start.y, goal.x, goal.y);
+
     AStarSet *open_set   = new_set(10);
     AStarSet *closed_set = new_set(10);
+
+    // set start and goal
+    map->start = &(map->nodes[start.y][start.x]);
+    map->goal  = &(map->nodes[goal.y][goal.x]);
+    map->start->tag = 'S';
+    map->goal->tag = 'G';
 
     // only starting node is in open set at the start
     map->start->f_score = heuristic_cost(map->start, map->goal);
     map->start->g_score = 0;
     add_to_set(open_set, map->start);
+    map->tested_count++;
 
 
     AStarNode *current;
     while (open_set->len > 0) {
         current = min_f_score(open_set);
         if (same_node(current, map->goal)) {
-            return retrace_map(map, current);
+            return retrace_map(current);
         }
 
         remove_from_set(open_set, current);
@@ -275,7 +279,7 @@ AStarPath *a_star_solve_map(AStarMap *map)
 
         AStarSet *neighbours = find_neighbours(map, current);
         for (int i = 0; i < neighbours->len; i++) {
-#if DEBUG
+#ifdef DEBUG
             a_star_print_map(map);
             getchar();
 #endif
@@ -283,11 +287,13 @@ AStarPath *a_star_solve_map(AStarMap *map)
             if (is_in_set(closed_set, neigh)) {
                 continue;
             }
+
             if (!is_in_set(open_set, neigh)) {
                 if (!same_node(neigh, map->goal)) {
                     neigh->tag = '~';
                 }
                 add_to_set(open_set, neigh);
+                map->tested_count++;
             }
 
             int temp_g = current->g_score + movement_cost(current, neigh);
@@ -296,7 +302,7 @@ AStarPath *a_star_solve_map(AStarMap *map)
             }
             neigh->g_score = temp_g;
             neigh->f_score = temp_g + heuristic_cost(neigh, map->goal);
-            neigh->came_from = current->pos;
+            neigh->came_from = current;
         }
         free(neighbours);
         neighbours = NULL;
@@ -309,8 +315,8 @@ AStarPath *a_star_solve_map(AStarMap *map)
 
 void a_star_print_path(AStarPath *path)
 {
-    printf("path:\nsteps = %d, weight = %d\n", path->steps_count, path->weight);
-    for (int i = path->steps_count, j = 0; i > 0; i--, j++) {
-        printf("[%d] (%d, %d)\n", j+1, path->steps[i-1].x, path->steps[i-1].y);
+    printf("path: nodes = %d; weight = %d\n", path->nodes_count, path->weight);
+    for (int i = 0; i < path->nodes_count; i++) {
+        printf("[%d] (%d, %d)\n", i, path->steps[i].x, path->steps[i].y);
     }
 }
