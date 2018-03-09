@@ -12,11 +12,11 @@ Also, all the examples are done by allowing 4-directional movement. In order to 
 ```
 Usage: a-star [OPTIONS] --map=FILE -start=x,y --goal=x,y
     --map   - map file
-		--start - start position
-		--goal  - goal position
+    --start - start position
+    --goal  - goal position
 
 OPTIONS:
-		--help - print this message
+    --help - print this message
 ```
 
 #### Examples can be found in `/examples` directory.
