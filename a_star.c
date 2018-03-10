@@ -251,21 +251,23 @@ void a_star_print_map(AStarMap *map)
     char format_h[8] = { 0 };
     sprintf(format_h, "%%%dd", max_h);
 
-
+    // pring first row of row labels
     printf(format_w, ' ');
     for (int x = 0; x < map->w; x++) {
         if (x%2) printf(format_w2, x);
         else     printf(format_w, ' ');
     }
     printf("\n");
+    // pring second row of row labels
     printf(format_w, ' ');
     for (int x = 0; x < map->w; x++) {
         if ((x+1)%2) printf(format_w2, x);
         else         printf(format_w, ' ');
     }
     printf("\n");
+
     for (int y = 0; y < map->h; y++) {
-        printf(format_h, y);
+        printf(format_h, y); // print column label
         for (int x = 0; x < map->w; x++) {
             printf(format_w, (map->nodes[y][x]).tag);
         }
