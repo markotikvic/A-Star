@@ -229,9 +229,45 @@ void a_star_print_map(AStarMap *map)
 {
     if (map == NULL) return;
 
+    int max_w = 0;
+    int temp = map->w;
+    while (temp > 0) {
+        temp /= 10;
+        max_w++;
+    }
+
+    int max_h = 0;
+    temp = map->h;
+    while (temp > 0) {
+        temp /= 10;
+        max_h++;
+    }
+
+    char format_w[8] = { 0 };
+    char format_w2[8] = { 0 };
+    sprintf(format_w, "%%%dc", max_w);
+    sprintf(format_w2, "%%%dd", max_w);
+
+    char format_h[8] = { 0 };
+    sprintf(format_h, "%%%dd", max_h);
+
+
+    printf(format_w, ' ');
+    for (int x = 0; x < map->w; x++) {
+        if (x%2) printf(format_w2, x);
+        else     printf(format_w, ' ');
+    }
+    printf("\n");
+    printf(format_w, ' ');
+    for (int x = 0; x < map->w; x++) {
+        if ((x+1)%2) printf(format_w2, x);
+        else         printf(format_w, ' ');
+    }
+    printf("\n");
     for (int y = 0; y < map->h; y++) {
+        printf(format_h, y);
         for (int x = 0; x < map->w; x++) {
-            printf("%c", (map->nodes[y][x]).tag);
+            printf(format_w, (map->nodes[y][x]).tag);
         }
         printf("\n");
     }
