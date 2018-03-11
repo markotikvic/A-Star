@@ -12,7 +12,7 @@ typedef struct command_line_arguments {
 
 void print_usage(void)
 {
-    printf("Usage: a-star [OPTIONS] --map=FILE -start=x,y --goal=x,y\n");
+    printf("Usage: a-star [OPTIONS] --map=FILE --start=x,y --goal=x,y\n");
     printf("    --map   - map file\n");
     printf("    --start - start position\n");
     printf("    --goal  - goal position\n\n");
