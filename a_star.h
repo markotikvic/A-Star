@@ -1,18 +1,18 @@
-#ifndef A_STAR_H
-#define A_STAR_H
+#ifndef __A_STAR_H__
+#define __A_STAR_H__
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 
-typedef struct vector2 {
+typedef struct point {
     int x, y;
-} vec2; 
+} point; 
 
 typedef struct a_star_node {
-    vec2 pos;
+    point pos;
     char tag;
-    int g_score; // cost from star to the this vertex node
+    int g_score; // cost from start to the this vertex node
     int f_score; // cost from this vertex node to the goal
     struct a_star_node *came_from;
 } AStarNode;
@@ -25,7 +25,7 @@ typedef struct node_set {
 
 typedef struct map {
     int w, h;
-    int tested_count;
+    int explored;
     AStarNode *start, *goal;
     AStarNode **nodes;
 } AStarMap;
@@ -33,12 +33,12 @@ typedef struct map {
 typedef struct path {
     int weight;
     int nodes_count;
-    vec2 *steps; // steps are reversed
+    point *steps; // steps are reversed
 } AStarPath;
 
-vec2 v2(int x, int y);
+point point2D(int x, int y);
 AStarMap  *a_star_parse_map(char *fname);
-AStarPath *a_star_solve_map(AStarMap *map, vec2 start, vec2 goal);
+AStarPath *a_star_solve_map(AStarMap *map);
 void a_star_print_map(AStarMap *map);
 void a_star_print_path(AStarPath *path);
 
