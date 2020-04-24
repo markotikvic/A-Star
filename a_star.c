@@ -128,8 +128,7 @@ static AStarSet *find_neighbours(AStarMap *map, AStarNode *current) {
 }
 
 // steps are in reverse order
-static AStarPath *retrace_map(AStarNode *last) {
-    AStarPath *path = (AStarPath *) malloc(sizeof(AStarPath));
+static void retrace_map(AStarNode *last, AStarPath *path) {
     AStarNode *curr = last;
 
     // mark the steps and count them up
@@ -154,8 +153,6 @@ static AStarPath *retrace_map(AStarNode *last) {
         path->steps[steps-i] = point2D(x, y);
         curr = curr->came_from;
     }
-
-    return path;
 }
 
 point point2D(int x, int y) {
@@ -164,13 +161,11 @@ point point2D(int x, int y) {
     return v;
 }
 
-AStarMap *a_star_parse_map(char *fname) {
-    AStarMap *map = (AStarMap *) malloc(sizeof(AStarMap));
-
+int a_star_parse_map(AStarMap *map, char *fname) {
     FILE *fp = fopen(fname, "r");
     if (fp == NULL) {
         fprintf(stderr, "couldn't open map %s\n", fname);
-        return NULL;
+        return 1;
     }
 
     // determine map size
@@ -226,19 +221,22 @@ AStarMap *a_star_parse_map(char *fname) {
 
     if (!found_s) {
         fprintf(stderr, "start not defined\n");
-        return NULL;
-    } else if (!found_g) {
-        fprintf(stderr, "goal not defined\n");
-        return NULL;
+        return 1;
     }
+
+    if (!found_g) {
+        fprintf(stderr, "goal not defined\n");
+        return 1;
+    }
+
     map->start->f_score = heuristic_cost(map->start, map->goal);
 
     fclose(fp);
 
-    return map;
+    return 0;
 }
 
-void a_star_print_map(AStarMap *map) {
+void print_map(AStarMap *map) {
     if (map == NULL) {
         return;
     }
@@ -251,7 +249,7 @@ void a_star_print_map(AStarMap *map) {
     }
 }
 
-AStarPath *a_star_solve_map(AStarMap *map) {
+int solve_map(AStarMap *map, AStarPath *path) {
     printf("solving for: S(%d, %d) -> G(%d, %d)\n",
             map->start->pos.x,
             map->start->pos.y,
@@ -269,7 +267,10 @@ AStarPath *a_star_solve_map(AStarMap *map) {
     while (open_set->len > 0) {
         current = min_f_score(open_set);
         if (same_node(current, map->goal)) {
-            return retrace_map(current);
+            free(open_set);
+            free(closed_set);
+            retrace_map(current, path);
+            return 0;
         }
 
         remove_from_set(open_set, current);
@@ -308,7 +309,7 @@ AStarPath *a_star_solve_map(AStarMap *map) {
     free(open_set);
     free(closed_set);
 
-    return NULL;
+    return 1;
 }
 
 void a_star_print_path(AStarPath *path) {

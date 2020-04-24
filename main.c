@@ -14,24 +14,25 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    AStarMap *map = a_star_parse_map(argv[1]);
-    if (map == NULL) {
+    AStarMap map = {0};
+    //AStarMap *map = a_star_parse_map(argv[1]);
+    if (parse_map(&map, argv[1]) != 0) {
         fprintf(stderr, "can't parse map\n");
         return 1;
     }
 
-    printf("size: %d x %d\n", map->w, map->h);
-    a_star_print_map(map);
+    printf("size: %d x %d\n", map.w, map.h);
+    print_map(&map);
 
-    AStarPath *path = a_star_solve_map(map);
-    if (path != NULL) {
+    AStarPath path = {0};
+    if (solve_map(&map, &path) != 0) {
         printf("\nsolved\n");
         //a_star_print_path(path);
     } else {
         printf("\ncouldn't solve map\n");
     }
-    printf("explored %d/%d nodes\n", map->explored, map->w*map->h);
-    a_star_print_map(map);
+    printf("explored %d/%d nodes\n", map.explored, map.w*map.h);
+    print_map(&map);
 
     return 0;
 }

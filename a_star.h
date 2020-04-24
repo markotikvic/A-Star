@@ -37,9 +37,9 @@ typedef struct path {
 } AStarPath;
 
 point point2D(int x, int y);
-AStarMap  *a_star_parse_map(char *fname);
-AStarPath *a_star_solve_map(AStarMap *map);
-void a_star_print_map(AStarMap *map);
-void a_star_print_path(AStarPath *path);
+int parse_map(AStarMap *map, char *fname);
+int solve_map(AStarMap *map, AStarPath *path);
+void print_map(AStarMap *map);
+void print_path(AStarPath *path);
 
 #endif /* A_STAR_H */
