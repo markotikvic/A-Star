@@ -11,120 +11,104 @@ static int heuristic_cost(AStarNode *n1, AStarNode *n2) {
     return D * (dx + dy);
 }
 
-static bool same_node(AStarNode *n1, AStarNode *n2) {
-    return (n1->pos.x == n2->pos.x && n1->pos.y == n2->pos.y);
-}
-
 static int movement_cost(AStarNode *n1, AStarNode *n2) {
     if (n2-> tag == '#') {
         return INF;
-    } else {
-        int cost = abs(n1->pos.x - n2->pos.x) + abs(n1->pos.y - n2->pos.y);
-        return cost;
     }
+
+    return abs(n1->pos.x - n2->pos.x) + abs(n1->pos.y - n2->pos.y);
 }
 
-static AStarSet *new_set(unsigned int size) {
-    if (size < 1) {
-        size = 1;
-    }
-    AStarSet *set = (AStarSet *) malloc(sizeof(AStarSet));
-    set->nodes = (AStarNode **) malloc(sizeof(AStarNode *) * size);
-    set->len = 0;
-    set->cap = size;
+static Array *new_array(int cap) {
+    Array *arr = (Array *) malloc(sizeof(Array));
+    arr->cap = cap < 1 ? 1 : cap;
+    arr->len = 0;
+    arr->items = (void *) malloc(sizeof(void *) * arr->cap);
 
-    return set;
+    return arr;
 }
 
-static void add_to_set(AStarSet *set, AStarNode *node) {
+static void *array_at(Array *arr, int index) {
+    return arr->items[index];
+}
+
+static void array_set(Array *arr, int index, void *v) {
+    arr->items[index] = v;
+}
+
+static void array_push(Array *arr, void *node) {
     // regrow set if needed by doubling it's capacity
-    if (set->cap == set->len) {
-        set->cap *= 2;
-        set->nodes = realloc(set->nodes, sizeof(AStarNode *) * set->cap);
+    if (arr->cap == arr->len) {
+        arr->cap *= 2;
+        arr->items = realloc(arr->items, sizeof(void *)*arr->cap);
     }
-    set->nodes[set->len] = node;
-    set->len++;
+    array_set(arr, arr->len, node);
+    arr->len++;
 }
 
-static AStarNode *node_at(AStarSet *set, int index) {
-    if (index < set->len) {
-        return set->nodes[index];
-    }
-
-    return NULL;
-}
-
-static bool is_in_set(AStarSet *set, AStarNode *node) {
-    for (int i = 0; i < set->len; i++) {
-        AStarNode *temp = node_at(set, i);
-        if (temp->pos.x == node->pos.x && temp->pos.y == node->pos.y) {
-            return true;
+static int in_array(Array *arr, void *node) {
+    for (int i = 0; i < arr->len; i++) {
+        if (array_at(arr, i) == node) {
+            return 1;
         }
     }
 
-    return false;
+    return 0;
 }
 
-static bool remove_from_set(AStarSet *set, AStarNode *node) {
-    AStarNode *temp;
-    for (int i = 0; i < set->len; i++) {
-        temp = set->nodes[i];
-        if (temp->pos.x == node->pos.x && temp->pos.y == node->pos.y) {
-            for (int j = i; j < set->len - 1; j++) {
-                set->nodes[j] = set->nodes[j+1];
+static void array_remove(Array *arr, void *node) {
+    for (int i = 0; i < arr->len; i++) {
+        if (array_at(arr, i) == node) {
+            for (int j = i; j < arr->len - 1; j++) {
+                array_set(arr, j, array_at(arr, j+1));
             }
-            set->len--;
-            set->nodes[set->len] = NULL;
-            return true;
+            arr->len--;
+            array_set(arr, arr->len, 0);
         }
     }
-
-    return false;
 }
 
-static AStarNode *min_f_score(AStarSet *set) {
-    AStarNode *temp, *min;
-    min = node_at(set, 0);
+static AStarNode *min_f_score(Array *arr) {
+    AStarNode *min = (AStarNode *) array_at(arr, 0);
 
-    for (int i = 0; i < set->len; i++) {
-        temp = set->nodes[i];
-        if (temp->f_score <= min->f_score) {
-            min = temp;
+    for (int i = 0; i < arr->len; i++) {
+        AStarNode *n = (AStarNode *) array_at(arr, i);
+        if (n->f_score <= min->f_score) {
+            min = n;
         }
     }
 
     return min;
 }
 
-static bool is_in_map(AStarMap *map, int x, int y) {
+static int in_map(AStarMap *map, int x, int y) {
     return (x >= 0 && y >= 0 && x < map->w && y < map->h);
 }
 
 // find only walkable neighbours
-static AStarSet *find_neighbours(AStarMap *map, AStarNode *current) {
-    AStarSet *n = new_set(1);
-    int x = current->pos.x;
-    int y = current->pos.y;
+static Array *find_neighbours(AStarMap *map, AStarNode *node) {
+    Array *neighbours = new_array(0);
 
-    AStarNode *temp = NULL;
-    for (int i = -1; i <= 1; i++) {
-        if (i != 0 && is_in_map(map, x+i, y)) {
-            temp = &(map->nodes[y][x+i]);
-            if (temp->tag != '#') {
-                add_to_set(n, temp);
-            }
-        }
-    }
-    for (int i = -1; i <= 1; i++) {
-        if (i != 0 && is_in_map(map, x, y+i)) {
-            temp = &(map->nodes[y+i][x]);
-            if (temp->tag != '#') {
-                add_to_set(n, temp);
-            }
-        }
+    int x = node->pos.x;
+    int y = node->pos.y;
+
+    if (in_map(map, x-1, y) && map->nodes[y][x-1].tag != '#') {
+        array_push(neighbours, (void *) &(map->nodes[y][x-1]));
     }
 
-    return n;
+    if (in_map(map, x+1, y) && map->nodes[y][x+1].tag != '#') {
+        array_push(neighbours, (void *) &(map->nodes[y][x+1]));
+    }
+
+    if (in_map(map, x, y-1) && map->nodes[y-1][x].tag != '#') {
+        array_push(neighbours, (void *) &(map->nodes[y-1][x]));
+    }
+
+    if (in_map(map, x, y+1) && map->nodes[y+1][x].tag != '#') {
+        array_push(neighbours, (void *) &(map->nodes[y+1][x]));
+    }
+
+    return neighbours;
 }
 
 // steps are in reverse order
@@ -144,24 +128,18 @@ static void retrace_map(AStarNode *last, AStarPath *path) {
     // add steps to path
     path->nodes_count = steps;
     path->weight = last->f_score;
-    path->steps = (point *) malloc(sizeof(point) * steps);
+    path->steps = (Vec2 *) malloc(sizeof(Vec2) * steps);
     curr = last;
-    path->steps[steps-1] = point2D(last->pos.x, last->pos.y);
+    path->steps[steps-1] = (Vec2) {last->pos.x, last->pos.y};
     for (int i = 2; i <= steps; i++) {
         x = curr->came_from->pos.x;
         y = curr->came_from->pos.y;
-        path->steps[steps-i] = point2D(x, y);
+        path->steps[steps-i] = (Vec2) {x, y};
         curr = curr->came_from;
     }
 }
 
-point point2D(int x, int y) {
-    point v = {x = x, y = y};
-
-    return v;
-}
-
-int a_star_parse_map(AStarMap *map, char *fname) {
+int parse_map(AStarMap *map, char *fname) {
     FILE *fp = fopen(fname, "r");
     if (fp == NULL) {
         fprintf(stderr, "couldn't open map %s\n", fname);
@@ -187,7 +165,7 @@ int a_star_parse_map(AStarMap *map, char *fname) {
     }
 
     // populate map
-    bool found_s = false, found_g = false;
+    int found_s = false, found_g = false;
     x = y = c = 0;
     rewind(fp);
     while ((c = fgetc(fp)) != EOF) {
@@ -197,20 +175,22 @@ int a_star_parse_map(AStarMap *map, char *fname) {
             continue;
         }
 
-        map->nodes[y][x].pos = point2D(x, y);
+        map->nodes[y][x].pos = (Vec2) {x, y};
         map->nodes[y][x].tag = c;
         // all nodes have infinite f and g scores at the start
         map->nodes[y][x].f_score = INF;
         map->nodes[y][x].g_score = INF;
         map->nodes[y][x].came_from = NULL;
 
+        // set start and goal nodes
         if (c == 'S') {
-            // set start and goal
             map->start = &(map->nodes[y][x]);
             map->start->tag = 'S';
             map->start->g_score = 0;
             found_s = true;
-        } else if (c == 'G') {
+        }
+
+        if (c == 'G') {
             map->goal = &(map->nodes[y][x]);
             map->goal->tag = 'G';
             found_g = true;
@@ -237,10 +217,6 @@ int a_star_parse_map(AStarMap *map, char *fname) {
 }
 
 void print_map(AStarMap *map) {
-    if (map == NULL) {
-        return;
-    }
-
     for (int y = 0; y < map->h; y++) {
         for (int x = 0; x < map->w; x++) {
             printf("%c", (map->nodes[y][x]).tag);
@@ -250,69 +226,68 @@ void print_map(AStarMap *map) {
 }
 
 int solve_map(AStarMap *map, AStarPath *path) {
-    printf("solving for: S(%d, %d) -> G(%d, %d)\n",
-            map->start->pos.x,
-            map->start->pos.y,
-            map->goal->pos.x,
-            map->goal->pos.y);
+    int sx = map->start->pos.x,
+        sy = map->start->pos.y,
+        ex = map->goal->pos.x,
+        ey = map->goal->pos.y;
+    printf("solving for: S(%d, %d) -> G(%d, %d)\n", sx, sy, ex, ey);
 
-    AStarSet *open_set   = new_set(10);
-    AStarSet *closed_set = new_set(10);
+    Array *open_array   = new_array(0);
+    Array *closed_array = new_array(0);
 
-    // only starting node is in open set at the start
-    add_to_set(open_set, map->start);
+    // only starting node is in open set at the begging
+    array_push(open_array, (void *) map->start);
     map->explored++;
 
-    AStarNode *current;
-    while (open_set->len > 0) {
-        current = min_f_score(open_set);
-        if (same_node(current, map->goal)) {
-            free(open_set);
-            free(closed_set);
+    while (open_array->len > 0) {
+        AStarNode *current = min_f_score(open_array);
+        if (current == map->goal) {
             retrace_map(current, path);
+            free(open_array);
+            free(closed_array);
             return 0;
         }
 
-        remove_from_set(open_set, current);
-        add_to_set(closed_set, current);
+        array_remove(open_array, (void *) current);
+        array_push(closed_array, current);
 
-        AStarSet *neighbours = find_neighbours(map, current);
+        Array *neighbours = find_neighbours(map, current);
         for (int i = 0; i < neighbours->len; i++) {
 #ifdef DEBUG
-            a_star_print_map(map);
+            print_map(map);
             getchar();
 #endif
-            AStarNode *neigh = node_at(neighbours, i);
-            if (is_in_set(closed_set, neigh)) {
+            AStarNode *n = (AStarNode *) array_at(neighbours, i);
+            if (in_array(closed_array, (void *) n)) {
                 continue;
             }
 
-            if (!is_in_set(open_set, neigh)) {
-                if (!same_node(neigh, map->goal)) {
-                    neigh->tag = '~';
+            if (!in_array(open_array, (void *) n)) {
+                if (n != map->goal) {
+                    n->tag = '~';
                 }
-                add_to_set(open_set, neigh);
+                array_push(open_array, n);
                 map->explored++;
             }
 
-            int temp_g = current->g_score + movement_cost(current, neigh);
-            if (temp_g >= neigh->g_score) {
+            int temp_g = current->g_score + movement_cost(current, n);
+            if (temp_g >= n->g_score) {
                 continue;
             }
-            neigh->g_score = temp_g;
-            neigh->f_score = temp_g + heuristic_cost(neigh, map->goal);
-            neigh->came_from = current;
+            n->g_score = temp_g;
+            n->f_score = temp_g + heuristic_cost(n, map->goal);
+            n->came_from = current;
         }
         free(neighbours);
         neighbours = NULL;
     }
-    free(open_set);
-    free(closed_set);
+    free(open_array);
+    free(closed_array);
 
     return 1;
 }
 
-void a_star_print_path(AStarPath *path) {
+void print_path(AStarPath *path) {
     printf("path: nodes = %d; weight = %d\n", path->nodes_count, path->weight);
     for (int i = 0; i < path->nodes_count; i++) {
         printf("[%d] (%d, %d)\n", i, path->steps[i].x, path->steps[i].y);

@@ -10,12 +10,11 @@ void print_usage(void);
 
 int main(int argc, char **argv) {
     if (argc < 2) {
-        print_usage();
+        printf("Usage: a-star <map_file>\n\n");
         return 1;
     }
 
     AStarMap map = {0};
-    //AStarMap *map = a_star_parse_map(argv[1]);
     if (parse_map(&map, argv[1]) != 0) {
         fprintf(stderr, "can't parse map\n");
         return 1;
@@ -25,9 +24,10 @@ int main(int argc, char **argv) {
     print_map(&map);
 
     AStarPath path = {0};
-    if (solve_map(&map, &path) != 0) {
-        printf("\nsolved\n");
-        //a_star_print_path(path);
+    if (solve_map(&map, &path) == 0) {
+#ifdef DEBUG
+        print_path(path);
+#endif
     } else {
         printf("\ncouldn't solve map\n");
     }
@@ -35,10 +35,4 @@ int main(int argc, char **argv) {
     print_map(&map);
 
     return 0;
-}
-
-void print_usage(void) {
-    printf("Usage: a-star [OPTIONS] [FILE]\n\n");
-    printf("OPTIONS:\n");
-    printf("    --help - print this message and exit\n");
 }
