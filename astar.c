@@ -1,34 +1,92 @@
 #include <string.h>
+#include <math.h>
 
 #include "astar.h"
 
-#define INF 10000
-
-static int distance(int x1, int y1, int x2, int y2) {
+static float distance(int n1, int n2, int w) {
+    int x1 = idxtox(n1,w);
+    int y1 = idxtoy(n1,w);
+    int x2 = idxtox(n2,w);
+    int y2 = idxtoy(n2,w);
     return abs(x1 - x2) + abs(y1 - y2);
 }
 
-static int heuristic_cost(int x1, int y1, int x2, int y2) {
-    int D = 1;
+static float h_cost(int n1, int n2, int w) {
+    float D = 1.0f;
 
-    return D * distance(x1, y1, x2, y2);
+    return D * distance(n1, n2, w);
 }
 
-static int movement_cost(int x1, int y1, int x2, int y2, char tile) {
-    return (tile == TILE_WALL ? INF : distance(x1, y1, x2, y2));
+static float move_cost(int n1, int n2, int w, char tile) {
+    return (tile == TILE_WALL ? INFINITY : distance(n1, n2, w));
 }
 
-static int min_fscore(Map_t *map) {
+static int min_fscore_node(Map_t *map) {
     int min_index = 0;
-    int fmin = map->fscores[0];
+    float fmin = INFINITY;
+
     for (int i = 0; i < map->w*map->h; i++) {
-        if (map->fscores[i] <= fmin) {
-            fmin = map->fscores[i];
-            min_index = i;
+        if (map->open_set[i] == 1) {
+            if (map->fscores[i] <= fmin) {
+                fmin = map->fscores[i];
+                min_index = i;
+            }
         }
     }
 
     return min_index;
+}
+
+static void retrace_map(Map_t *map, int current) {
+    int w = map->w;
+    char c = TILE_GOAL;
+    while (current != -1) {
+        int x, y;
+        current = map->came_from[current];
+        y = idxtoy(current,w);
+        x = idxtox(current,w);
+        c = map->tiles[y][x];
+        if (c == TILE_START) {
+            break;
+        }
+        map->tiles[y][x] = '@';
+    }
+}
+
+int find_neighbours(Map_t *map, int current, int *neighbours) {
+    int up, down, left, right;//, upl, upr, downl, downr;
+    int neigh_n = 0;
+
+    left  = current - 1;
+    right = current + 1;
+    up    = current - map->w;
+    down  = current + map->w;
+    //upl   = up - 1;
+    //upr   = up + 1;
+    //downl = down - 1;
+    //downr = down + 1;
+
+    // if not in first column
+    if (idxtox(current,map->w) != 0) {
+        neighbours[neigh_n++] = left;
+    }
+
+    // if not in last column
+    if (idxtox(current,map->w) != (map->w - 1)) {
+        neighbours[neigh_n++] = right;
+    }
+
+    // if not in first row
+    if (idxtoy(current,map->w) != 0) {
+        neighbours[neigh_n++] = up;
+    }
+
+    // if not in last row
+    if (idxtoy(current,map->w) != (map->h - 1)) {
+        neighbours[neigh_n++] = down;
+    }
+
+    return neigh_n;
 }
 
 int parse_map(Map_t *map, FILE *fp) {
@@ -46,9 +104,19 @@ int parse_map(Map_t *map, FILE *fp) {
     map->fscores = (float *) malloc(w*h*sizeof(float));
     map->gscores = (float *) malloc(w*h*sizeof(float));
     map->open_set = (int *) malloc(w*h*sizeof(int));
+    map->came_from = (int *) malloc(w*h*sizeof(int));
+
+    // set default values for map
+    for (int i = 0; i < w*h; i++) {
+        map->gscores[i] = INFINITY;
+        map->fscores[i] = INFINITY;
+        map->open_set[i] = 0;
+        map->came_from[i] = -1;
+    }
     map->open_n = 0;
 
     rewind(fp);
+
     return 0;
 }
 
@@ -69,6 +137,7 @@ void free_map_buffers(Map_t *map) {
     free(map->fscores);
     free(map->gscores);
     free(map->open_set);
+    free(map->came_from);
 }
 
 int pos_in_string(char *s, char c) {
@@ -83,91 +152,53 @@ int pos_in_string(char *s, char c) {
 
 int solve_map(Map_t *map) {
     // find start and goal index
-    int start, goal, w, h, p;
+    int s, g, w, h, p;
     w = map->w;
     h = map->h;
 
     for (int i = 0; i < h; i++) {
         if ((p = pos_in_string(map->tiles[i], TILE_START)) != -1) {
-            start = i*w+p;
+            s = i*w+p;
         }
         if ((p = pos_in_string(map->tiles[i], TILE_GOAL)) != -1) {
-            goal = i*w+p;
+            g = i*w+p;
         }
     }
-    printf("Start (%d): Y%d X%d\n", start, idxtoy(start,w), idxtox(start,w));
-    printf("Goal (%d): Y%d X%d\n", goal, idxtoy(goal,w), idxtox(goal,w));
-    //map->open_set[map->open_n++] = 
+
+    map->open_set[s] = 1;
+    map->open_n++;
+    map->gscores[s] = 0.0f;
+    map->fscores[s] = h_cost(s, g, w);
+
+    while (map->open_n) {
+        int current = min_fscore_node(map);
+        if (current == g) {
+            printf("done!\n");
+            retrace_map(map, current);
+            return 1;
+        }
+
+        map->open_set[current] = 0;
+        map->open_n--;
+        int neighbours[8] = {0};
+        int neigh_n = find_neighbours(map, current, neighbours);
+        for (int i = 0; i < neigh_n; i++) {
+            int n = neighbours[i];
+            int tile = map->tiles[idxtoy(n,w)][idxtox(n,w)];
+            float tent_gscore = map->gscores[current] + move_cost(current, n, w, tile);
+            if (tent_gscore < map->gscores[n]) {
+                map->came_from[n] = current;
+                map->gscores[n] = tent_gscore;
+                map->fscores[n] = tent_gscore + h_cost(n, g, w);
+                if (map->open_set[n] != 1) {
+                    map->open_set[n] = 1;
+                    map->open_n++;
+                }
+            }
+        }
+    }
+
+
+    printf("can't solve!\n");
     return 0;
 }
-
-/*
-int solve_map(AStarMap *map, AStarPath *path) {
-    int sx = map->start->pos.x,
-        sy = map->start->pos.y,
-        ex = map->goal->pos.x,
-        ey = map->goal->pos.y;
-    printf("solving for: S(%d, %d) -> G(%d, %d)\n", sx, sy, ex, ey);
-
-    Array *open_array   = new_array(0);
-    Array *closed_array = new_array(0);
-
-    // only starting node is in open set at the begging
-    array_push(open_array, (void *) map->start);
-    map->explored++;
-
-    while (open_array->len > 0) {
-        AStarNode *current = min_f_score(open_array);
-        if (current == map->goal) {
-            retrace_map(current, path);
-            free(open_array);
-            free(closed_array);
-            return 0;
-        }
-
-        array_remove(open_array, (void *) current);
-        array_push(closed_array, current);
-
-        Array *neighbours = find_neighbours(map, current);
-        for (int i = 0; i < neighbours->len; i++) {
-#ifdef DEBUG
-            print_map(map);
-            getchar();
-#endif
-            AStarNode *n = (AStarNode *) array_at(neighbours, i);
-            if (in_array(closed_array, (void *) n)) {
-                continue;
-            }
-
-            if (!in_array(open_array, (void *) n)) {
-                if (n != map->goal) {
-                    n->tag = '~';
-                }
-                array_push(open_array, n);
-                map->explored++;
-            }
-
-            int temp_g = current->g_score + movement_cost(current, n);
-            if (temp_g >= n->g_score) {
-                continue;
-            }
-            n->g_score = temp_g;
-            n->f_score = temp_g + heuristic_cost(n, map->goal);
-            n->came_from = current;
-        }
-        free(neighbours);
-        neighbours = NULL;
-    }
-    free(open_array);
-    free(closed_array);
-
-    return 1;
-}
-
-void print_path(AStarPath *path) {
-    printf("path: nodes = %d; weight = %d\n", path->nodes_count, path->weight);
-    for (int i = 0; i < path->nodes_count; i++) {
-        printf("[%d] (%d, %d)\n", i, path->steps[i].x, path->steps[i].y);
-    }
-}
-*/

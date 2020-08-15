@@ -20,6 +20,7 @@ typedef struct {
     int open_n;
     float *gscores;
     float *fscores;
+    int *came_from;
     int *path;
 } Map_t;
 

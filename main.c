@@ -26,6 +26,8 @@ int main(int argc, char **argv) {
     printf("%dx%d (HxW)\n", map.h, map.w);
     print_map(&map);
     solve_map(&map);
+    printf("\n");
+    print_map(&map);
     free_map_buffers(&map);
 
     return 0;
