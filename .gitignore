@@ -1,2 +1,3 @@
-obj/*
-a-star
+obj
+astar
+*.swp

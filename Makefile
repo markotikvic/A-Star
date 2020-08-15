@@ -1,6 +1,6 @@
 # make sure to use \t instead of spaces
 # set the name of the project
-PROJ_NAME = a-star
+PROJ_NAME = astar
 
 # compiler
 CC = gcc
@@ -18,11 +18,11 @@ LDIR = ../lib
 LIBS =
 
 # dependencies (e.g. util.h)
-DEPS = a_star.h
+DEPS = astar.h
 
 # object files (e.g. main.o util.o from main.c and util.c)
 # order of object files matter
-_OBJ = a_star.o main.o
+_OBJ = astar.o main.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 # compile to object files
