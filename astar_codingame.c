@@ -1,7 +1,31 @@
+#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <math.h>
 
-#include "astar.h"
+#define TILE_WALL    '#'
+#define TILE_SPACE   '.'
+#define TILE_UNKNOWN '?'
+#define TILE_START   'P'
+#define TILE_GOAL1   'C'
+#define TILE_GOAL2   'T'
+
+char TILE_GOAL = 0;
+
+#define idxtox(i,w) (i%w)
+#define idxtoy(i,w) (i/w)
+
+typedef struct {
+    int w, h;
+    char **tiles;
+    int *open_set;
+    int open_n;
+    float *gscores;
+    float *fscores;
+    int *came_from;
+    int *path;
+} Map_t;
+
 
 static float distance(int n1, int n2, int w) {
     int x1 = idxtox(n1,w);
@@ -26,8 +50,12 @@ static float move_cost(int n1, int n2, int w, char tile) {
             break;
         case TILE_SPACE:
         case TILE_START:
-        case TILE_GOAL:
+        case TILE_GOAL1:
+        case TILE_GOAL2:
             cost = distance(n1, n2, w);
+            break;
+        case TILE_UNKNOWN:
+            cost = 3*distance(n1, n2, w);
             break;
         default:
             cost = INFINITY;
@@ -53,9 +81,11 @@ static int min_fscore_node(Map_t *map) {
     return min_index;
 }
 
-static void retrace_map(Map_t *map, int current) {
+static void retrace_map(Map_t *map, int current, int path[100]) {
+    int i = 0;
     int w = map->w;
     char c = TILE_GOAL;
+    path[i++] = current;
     while (current != -1) {
         int x, y;
         current = map->came_from[current];
@@ -66,6 +96,14 @@ static void retrace_map(Map_t *map, int current) {
             break;
         }
         map->tiles[y][x] = '@';
+        path[i++] = current;
+    }
+
+    // reverse map so that the next move is first
+    for (int j = 0; j < i; j++) {
+        int temp = path[j];
+        path[j] = path[i - j - 1];
+        path[i] = temp;
     }
 }
 
@@ -105,17 +143,17 @@ int find_neighbours(Map_t *map, int current, int *neighbours) {
     return neigh_n;
 }
 
-int parse_map(Map_t *map, FILE *fp) {
-    int w, h;
+#define MAX_ROWS 100
+#define MAX_COLS 200
 
-    fscanf(fp, "%dx%d\n", &h, &w);
+int parse_map(Map_t *map, int h, int w, char temp_map[MAX_ROWS][MAX_COLS]) {
     map->w = w;
     map->h = h;
 
     map->tiles = (char **) malloc(h * sizeof(char *));
     for (int i = 0; i < h; i++) {
         map->tiles[i] = (char *) malloc(w * sizeof(char));
-        fscanf(fp, "%s\n", map->tiles[i]);
+        memcpy(map->tiles[i], temp_map[i], w);
     }
     map->fscores = (float *) malloc(w*h*sizeof(float));
     map->gscores = (float *) malloc(w*h*sizeof(float));
@@ -131,17 +169,15 @@ int parse_map(Map_t *map, FILE *fp) {
     }
     map->open_n = 0;
 
-    rewind(fp);
-
     return 0;
 }
 
 void print_map(Map_t *map) {
     for (int i = 0; i < map->h; i++) {
         for (int j = 0; j < map->w; j++) {
-            printf("%c", map->tiles[i][j]);
+            fprintf(stderr, "%c", map->tiles[i][j]);
         }
-        printf("\n");
+        fprintf(stderr, "\n");
     }
 }
 
@@ -166,7 +202,7 @@ int pos_in_string(char *s, char c) {
     return pos;
 }
 
-int solve_map(Map_t *map) {
+int solve_map(Map_t *map, int path[100]) {
     // find start and goal index
     int s, g, w, h, p;
     w = map->w;
@@ -189,8 +225,8 @@ int solve_map(Map_t *map) {
     while (map->open_n) {
         int current = min_fscore_node(map);
         if (current == g) {
-            printf("done!\n");
-            retrace_map(map, current);
+            //fprintf(stderr, "done!\n");
+            retrace_map(map, current, path);
             return 1;
         }
 
@@ -215,6 +251,98 @@ int solve_map(Map_t *map) {
     }
 
 
-    printf("can't solve!\n");
+    fprintf(stderr, "can't solve!\n");
+    return 0;
+}
+
+int main()
+{
+    // number of rows.
+    int h, w, a;
+    int real_goal_on_map = 0;
+    int rgx = 0, rgy = 0;
+    int fake_goal_reached = 1;
+    int fgx = 0, fgy = 0;
+
+    char temp_map[MAX_ROWS][MAX_COLS] = {{0}};
+    Map_t map;
+    int path[100] = {0};
+    
+
+    srand(h*w*a);
+
+    scanf("%d%d%d\n", &h, &w, &a);
+    //fprintf(stderr, "%d %d %d\n", h, w, a);
+
+    TILE_GOAL = TILE_GOAL1;
+
+    // game loop
+    while (1) {
+        int start_y, start_x;
+        scanf("%d%d\n", &start_y, &start_x);
+        for (int i = 0; i < h; i++) {
+            scanf("%s", temp_map[i]);
+            for (int j = 0; j < w; j++) {
+                if (temp_map[i][j] == TILE_GOAL) {
+                    real_goal_on_map = 1;
+                    rgx = j;
+                    rgy = i;
+                }
+            }
+        }
+
+        if (start_x == rgx && start_y == rgy) {
+            TILE_GOAL = TILE_GOAL2;
+        }
+        if (start_x == fgx && start_y == fgy) {
+            fake_goal_reached = 1;
+        }
+
+        if (temp_map[fgy][fgx] == TILE_WALL) {
+            fake_goal_reached = 1;
+        };
+
+        if (!real_goal_on_map) {
+            if (fake_goal_reached) {
+                fake_goal_reached = 0;
+                fgx = rand() % w; // fake goal x
+                fgy = rand() % h; // fake goal y
+                char tmp = temp_map[fgy][fgx];
+                while (tmp == TILE_WALL || tmp == 'T' || tmp == TILE_SPACE) {
+                    fgx = rand() % w;
+                    fgy = rand() % h;
+                    tmp = temp_map[fgy][fgx];
+                }
+            }
+            temp_map[fgy][fgx] = TILE_GOAL;
+        }
+
+        temp_map[start_y][start_x] = TILE_START;
+
+        parse_map(&map, h, w, temp_map);
+        print_map(&map);
+
+        if (solve_map(&map, path)) {
+            int next_x = idxtox(path[0], w);
+            int next_y = idxtoy(path[0], w);
+
+            //fprintf(stderr, "next: %d %d\n", next_x, next_y);
+
+            if (next_x > start_x) {
+                printf("RIGHT\n");
+            } else if (next_x < start_x) {
+                printf("LEFT\n");
+            } else if (next_y > start_y) {
+                printf("DOWN\n");
+            } else if (next_y < start_y) {
+                printf("UP\n");
+            } else {
+                fprintf(stderr, "impossible next move\n");
+            }
+        }
+        free_map_buffers(&map);
+        memset(path, 0, 100*sizeof(int));
+    }
+
     return 0;
 }
